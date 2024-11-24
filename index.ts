@@ -166,7 +166,40 @@ export type EventNames =
   | "clipboardTextReceived"
   | "writeAccessRequested"
   | "contactRequested"
-  | "scanQrPopupClosed";
+  | "scanQrPopupClosed"
+  | "fullscreenChanged"
+  | "fullscreenFailed"
+  | "emojiStatusSet"
+  | "emojiStatusFailed"
+  | "emojiStatusAccessRequested"
+  | "homeScreenAdded"
+  | "homeScreenChecked"
+  | "accelerometerStarted"
+  | "accelerometerStopped"
+  | "accelerometerChanged"
+  | "accelerometerFailed"
+  | "deviceOrientationStarted"
+  | "deviceOrientationStopped"
+  | "deviceOrientationChanged"
+  | "deviceOrientationFailed"
+  | "gyroscopeStarted"
+  | "gyroscopeStopped"
+  | "gyroscopeChanged"
+  | "gyroscopeFailed"
+  | "locationManagerUpdated"
+  | "locationRequested";
+
+export interface LocationData {
+  latitude: number;
+  longitude: number;
+  altitude: number | null;
+  course: number | null;
+  speed: number | null;
+  horizontal_accuracy: number | null;
+  vertical_accuracy: number | null;
+  course_accuracy: number | null;
+  speed_accuracy: number | null;
+}
 
 export type EventParams = {
   invoiceClosed: { url: string; status: InvoiceStatuses };
@@ -182,6 +215,27 @@ export type EventParams = {
   writeAccessRequested: { status: "allowed" | "cancelled" };
   contactRequested: { status: "sent" | "cancelled" };
   scanQrPopupClosed: void;
+  fullscreenChanged: void;
+  fullscreenFailed: { error: string };
+  emojiStatusSet: void;
+  emojiStatusFailed: { error: string };
+  emojiStatusAccessRequested: { status: "allowed" | "cancelled" };
+  homeScreenAdded: void;
+  homeScreenChecked: { status: string };
+  accelerometerStarted: void;
+  accelerometerStopped: void;
+  accelerometerChanged: void;
+  accelerometerFailed: { error: string };
+  deviceOrientationStarted: void;
+  deviceOrientationStopped: void;
+  deviceOrientationChanged: void;
+  deviceOrientationFailed: { error: string };
+  gyroscopeStarted: void;
+  gyroscopeStopped: void;
+  gyroscopeChanged: void;
+  gyroscopeFailed: { error: string };
+  locationManagerUpdated: void;
+  locationRequested: { locationData: LocationData };
 };
 
 export type PopupParams = {
@@ -217,15 +271,45 @@ export type Platforms =
   | "unigram"
   | "unknown";
 
-export type BiometricRequestAccessParams = {
-  reason?: string;
-};
+export interface Accelerometer {
+  isStarted: boolean;
+  x: number | null;
+  y: number | null;
+  z: number | null;
+  start: (params?: { refresh_rate?: number }, callback?: (success: boolean) => void) => Accelerometer;
+  stop: (callback?: (success: boolean) => void) => Accelerometer;
+}
 
-export type BiometricAuthenticateParams = {
-  reason?: string;
-};
+export interface DeviceOrientation {
+  isStarted: boolean;
+  absolute: boolean;
+  alpha: number | null;
+  beta: number | null;
+  gamma: number | null;
+  start: (params?: { refresh_rate?: number, need_absolute?: boolean }, callback?: (success: boolean) => void) => DeviceOrientation;
+  stop: (callback?: (success: boolean) => void) => DeviceOrientation;
+}
 
-export type BiometricManager = {
+export interface Gyroscope {
+  isStarted: boolean;
+  x: number | null;
+  y: number | null;
+  z: number | null;
+  start: (params?: { refresh_rate?: number }, callback?: (success: boolean) => void) => Gyroscope;
+  stop: (callback?: (success: boolean) => void) => Gyroscope;
+}
+
+export interface LocationManager {
+  isInited: boolean;
+  isLocationAvailable: boolean;
+  isAccessRequested: boolean;
+  isAccessGranted: boolean;
+  init: (callback?: VoidFunction) => LocationManager;
+  getLocation: (callback: (location: LocationData | null) => void) => LocationManager;
+  openSettings: () => LocationManager;
+}
+
+export interface BiometricManager {
   isInited: boolean;
   isBiometricAvailable: boolean;
   biometricType: "finger" | "face" | "unknown";
@@ -235,29 +319,19 @@ export type BiometricManager = {
   deviceId: string;
   init: (callback?: VoidFunction) => BiometricManager;
   requestAccess: (
-    params: BiometricRequestAccessParams,
+    params: { reason?: string },
     callback?: (isAccessGranted: boolean) => void
   ) => BiometricManager;
   authenticate: (
-    params: BiometricAuthenticateParams,
-    callback?: (isAuthenticated: boolean) => void
+    params: { reason?: string },
+    callback?: (isAuthenticated: boolean, biometricToken?: string) => void
   ) => BiometricManager;
   updateBiometricToken: (
     token: string,
     callback?: (isBiometricTokenUpdated: boolean) => void
   ) => BiometricManager;
   openSettings: () => BiometricManager;
-};
-
-export type StoryWidgetLink = {
-  url: string;
-  name?: string;
-};
-
-export type ShareStoryParams = {
-  text?: string;
-  widget_link?: StoryWidgetLink;
-};
+}
 
 export interface WebApp {
   isExpanded: boolean;
@@ -266,11 +340,30 @@ export interface WebApp {
   platform: Platforms;
   headerColor: `#${string}`;
   backgroundColor: `#${string}`;
+  bottomBarColor: string;
   isClosingConfirmationEnabled: boolean;
+  isVerticalSwipesEnabled: boolean;
+  isFullscreen: boolean;
+  isOrientationLocked: boolean;
+  isActive: boolean;
+  safeAreaInset: { top: number; bottom: number; left: number; right: number };
+  contentSafeAreaInset: { top: number; bottom: number; left: number; right: number };
   themeParams: ThemeParams;
   initDataUnsafe: WebAppInitData;
   initData: string;
   colorScheme: "light" | "dark";
+  version: string;
+  BiometricManager: BiometricManager;
+  Accelerometer: Accelerometer;
+  DeviceOrientation: DeviceOrientation;
+  Gyroscope: Gyroscope;
+  LocationManager: LocationManager;
+  MainButton: MainButton;
+  SecondaryButton: SecondaryButton;
+  BackButton: BackButton;
+  SettingsButton: SettingsButton;
+  HapticFeedback: HapticFeedback;
+  CloudStorage: CloudStorage;
   onEvent: <T extends EventNames>(
     eventName: T,
     callback: (params: EventParams[T]) => unknown
@@ -280,56 +373,52 @@ export interface WebApp {
     callback: (params: EventParams[T]) => unknown
   ) => void;
   sendData: (data: unknown) => void;
-  close: VoidFunction;
+  close: (params?: { return_back?: boolean }) => void;
   expand: VoidFunction;
-  MainButton: MainButton;
-  SecondaryButton: SecondaryButton;
-  HapticFeedback: HapticFeedback;
-  CloudStorage: CloudStorage;
-  openLink: (link: string, options?: { try_instant_view: boolean }) => void;
-  openTelegramLink: (link: string) => void;
-  BackButton: BackButton;
-  SettingsButton: SettingsButton;
-  version: string;
   isVersionAtLeast: (version: string) => boolean;
-  openInvoice: (
-    url: string,
-    callback?: (status: InvoiceStatuses) => unknown
-  ) => void;
-  setHeaderColor: (
-    color: "bg_color" | "secondary_bg_color" | `#${string}`
-  ) => void;
-  setBackgroundColor: (
-    color: "bg_color" | "secondary_bg_color" | `#${string}`
-  ) => void;
-  showConfirm: (
-    message: string,
-    callback?: (confirmed: boolean) => void
-  ) => void;
-  showPopup: (params: PopupParams, callback?: (id?: string) => unknown) => void;
-  showAlert: (message: string, callback?: () => unknown) => void;
+  setHeaderColor: (color: "bg_color" | "secondary_bg_color" | `#${string}`) => void;
+  setBackgroundColor: (color: "bg_color" | "secondary_bg_color" | `#${string}`) => void;
+  setBottomBarColor: (color: "bg_color" | "secondary_bg_color" | "bottom_bar_bg_color" | `#${string}`) => void;
   enableClosingConfirmation: VoidFunction;
   disableClosingConfirmation: VoidFunction;
-  showScanQrPopup: (
-    params: ScanQrPopupParams,
-    callback?: (text: string) => void | true
-  ) => void;
-  closeScanQrPopup: () => void;
-  readTextFromClipboard: (callback?: (text: string) => unknown) => void;
+  enableVerticalSwipes: VoidFunction;
+  disableVerticalSwipes: VoidFunction;
+  lockOrientation: VoidFunction;
+  unlockOrientation: VoidFunction;
+  requestFullscreen: VoidFunction;
+  exitFullscreen: VoidFunction;
+  addToHomeScreen: VoidFunction;
+  checkHomeScreenStatus: (callback: (status: string) => void) => void;
   ready: VoidFunction;
+  openLink: (url: string, options?: { try_instant_view?: boolean; try_browser?: boolean }) => void;
+  openTelegramLink: (url: string, options?: { force_request?: boolean }) => void;
+  openInvoice: (url: string, callback?: (status: InvoiceStatuses) => void) => void;
+  showPopup: (params: PopupParams, callback?: (button_id?: string) => void) => void;
+  showAlert: (message: string, callback?: () => void) => void;
+  showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void;
+  showScanQrPopup: (params: ScanQrPopupParams, callback?: (text: string) => boolean | void) => void;
+  closeScanQrPopup: VoidFunction;
+  readTextFromClipboard: (callback?: (text: string) => void) => void;
+  requestWriteAccess: (callback?: (access: boolean) => void) => void;
+  requestContact: (callback?: (success: boolean, eventData?: EventParams['contactRequested']) => void) => void;
+  shareToStory: (mediaURL: string, params?: ShareStoryParams) => void;
+  downloadFile: (params: { url: string; file_name: string }, callback?: (isDownloading: boolean) => void) => void;
+  shareMessage: (msg_id: string, callback?: (success: boolean) => void) => void;
+  setEmojiStatus: (
+    custom_emoji_id: string, 
+    params?: { duration?: number },
+    callback?: (success: boolean) => void
+  ) => void;
+  requestEmojiStatusAccess: (callback?: (allowed: boolean) => void) => void;
   switchInlineQuery: (
     query: string,
     chooseChatTypes?: Array<"users" | "bots" | "groups" | "channels">
   ) => void;
-  requestWriteAccess: (callback?: (access: boolean) => unknown) => void;
-  requestContact: (callback?: (access: boolean) => unknown) => void;
-  BiometricManager: BiometricManager;
-  isVerticalSwipesEnabled: boolean;
-  enableVerticalSwipes: VoidFunction;
-  disableVerticalSwipes: VoidFunction;
-  shareToStory: (mediaURL: string, params?: ShareStoryParams) => void;
-  bottomBarColor: string;
-  setBottomBarColor: (bottomBarColor: string) => void;
+  invokeCustomMethod: <T = any>(
+    method: string,
+    params?: Record<string, any>,
+    callback?: (err: string | null, result?: T) => void
+  ) => void;
 }
 
 export interface Telegram {
